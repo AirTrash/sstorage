@@ -33,6 +33,7 @@ class Token(Base):
     token: Mapped[str] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey(User.id))
     key_id: Mapped[int] = mapped_column(ForeignKey(Key.id))
+    permissions: Mapped[str]
 
 
 class Secret(Base):

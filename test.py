@@ -6,25 +6,14 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sess
 
 load_dotenv(".env")
 
-
-async def test(sessmaker):
-    async with sessmaker() as session:
-        print(session)
+from secret_manager.db.models import Base
+from secret_manager.db.db_helper import db_helper
 
 
 async def main():
-    async with engine.begin() as conn:
-        print(conn)
+    async with db_helper.engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
 
 
 if __name__ == "__main__":
-    connect_args = {
-    }
-
-    engine = create_async_engine(
-        os.getenv("DATABASE_URL"),
-        connect_args=connect_args
-    )
-    print(engine)
-
     asyncio.run(main())

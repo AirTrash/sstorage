@@ -13,10 +13,12 @@ from sqlalchemy import select, delete
 
 #создает новый ключ, term - срок действия в днях
 @commit
-async def create_key(session: AsyncSession, master_key_id: int, key: bytes, term: int):
+async def create_key(session: AsyncSession, master_key_id: int, key: bytes, nonce: bytes, tag: bytes, term: int) -> Key:
     key = Key(
         master_key_id=master_key_id,
         key=key,
+        nonce=nonce,
+        tag=tag,
         end_date=datetime.now() + timedelta(days=term)
     )
     session.add(key)

@@ -15,7 +15,7 @@ class Base(AsyncAttrs, DeclarativeBase):
 class User(Base):
     __tablename__ = "users"
     id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str]
+    name: Mapped[str] = mapped_column(unique=True)
     pass_hash: Mapped[str]
     pass_sault: Mapped[str]
     create_date: Mapped[datetime.datetime] = mapped_column(server_default=func.now())
@@ -26,6 +26,8 @@ class Key(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     master_key_id: Mapped[int]
     key = Column(LargeBinary())
+    nonce = Column(LargeBinary())
+    tag = Column(LargeBinary())
     create_date: Mapped[datetime.datetime] = mapped_column(server_default=func.now())
     end_date: Mapped[datetime.datetime]
 
@@ -49,3 +51,4 @@ class Secret(Base):
     secret = Column(LargeBinary())
     tag = Column(LargeBinary())
     nonce = Column(LargeBinary())
+    datatype: Mapped[str]

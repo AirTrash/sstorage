@@ -27,7 +27,7 @@ async def create_token(session: AsyncSession, token: str, user_id: int, key_id: 
 
 
 #получить токен
-async def get_token(session: AsyncSession, token: str) -> Token | None:
+async def get_token(session: AsyncSession, token: str) -> None | Token:
     stmt = select(Token).where(Token.token == token)
     result = await session.execute(stmt)
     return result.scalar_one_or_none()

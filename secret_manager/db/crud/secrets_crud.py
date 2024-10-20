@@ -6,18 +6,11 @@ from .decorators import commit
 from sqlalchemy import select, update, delete
 
 
-#user_id
-#key_id
-#sec_level
-#secret
-#tag
-#nonce
-
 
 #создает секрет
 @commit
 async def create_secret(session: AsyncSession, name: str, user_id: int, key_id: int, sec_level: int,
-                        secret: bytes, tag: bytes, nonce: bytes) -> Secret:
+                        secret: bytes, tag: bytes, nonce: bytes, datatype: str) -> Secret:
     secret = Secret(
         name=name,
         user_id=user_id,
@@ -25,7 +18,8 @@ async def create_secret(session: AsyncSession, name: str, user_id: int, key_id: 
         sec_level=sec_level,
         secret=secret,
         tag=tag,
-        nonce=nonce
+        nonce=nonce,
+        datatype=datatype
     )
     session.add(secret)
     return secret

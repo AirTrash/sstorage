@@ -7,5 +7,5 @@ class ABCManager(ABC):
         pass
 
     @abstractmethod
-    async def get_current_key(self) -> bytes:
+    async def get_current_key(self) -> (int, bytes):
         pass

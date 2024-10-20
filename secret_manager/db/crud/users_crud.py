@@ -28,10 +28,27 @@ async def get_user(session: AsyncSession, user_id: int) -> User | None:
     return result.scalar_one_or_none()
 
 
+#получение пользователя по name
+async def get_by_name(session: AsyncSession, name: str) -> User | None:
+    stmt = select(User).where(User.name == name)
+    result = await session.execute(stmt)
+    return result.scalar_one_or_none()
+
+
 #обновление пароля пользователя
 @commit
 async def update_pass(session: AsyncSession, user_id: int, new_passhash: str, new_sault: str) -> bool:
-    stmt = update(User).where(User.id == user_id).values(pass_hash = new_passhash, sault = new_sault)
+    stmt = update(User).where(User.id == user_id).values(pass_hash = new_passhash, pass_sault = new_sault)
+    result = await session.execute(stmt)
+    if result.rowcount == 0:
+        return False
+    return True
+
+
+#изменение имени пользователя
+@commit
+async def update_name(session: AsyncSession, user_id: int, new_name: str) -> bool:
+    stmt = update(User).where(User.id == user_id).values(name = new_name)
     result = await session.execute(stmt)
     if result.rowcount == 0:
         return False

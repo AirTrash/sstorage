@@ -220,6 +220,7 @@ class SecretManager:
 
         #зашифровывание данных полученным ключем
         cyphertext, nonce, tag = crypto.encrypt(data, dec_key)
+        sec_level = min(sec_level, token.sec_level)
         secret = await secrets_crud.create_secret(session, secret_name, token.user_id, key.id, sec_level, cyphertext, tag, nonce, datatype)
         if secret is None: return None
         return secret.id

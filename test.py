@@ -24,20 +24,39 @@ async def main():
 
     key = get_random_bytes(16)
     async with db_helper.sessionmaker() as session:
-        user = await secret_manager.create_user(session, "kishaolo", "parol")
-        token = await secret_manager.create_token_login_auth(session, "kishaolo", "parol", 10,
-                                                             [Permissions.create_secrets, Permissions.create_tokens, Permissions.read_secrets])
+        #await secret_manager.create_user(session, "kishaolo", "parol")
+        #token1 = await secret_manager.create_token_login_auth(
+        #    session,
+        #    username="kishaolo",
+        #    password="parol",
+        #    sec_level=9,
+        #    permissions=[Permissions.create_tokens, Permissions.read_secrets]
+        #)
 
+        #print(token1)
 
-        secret = await secret_manager.create_secret_str(
-            session,
-            "mE6JOEvUPylnR6JQ3iT5E0aoO6LPnHow8Ft8Upn2pk0",
-            "test1",
-            10,
-            "hello"
-        )
-        print(secret)
-        data = await secret_manager.get_secret(session, "mE6JOEvUPylnR6JQ3iT5E0aoO6LPnHow8Ft8Upn2pk0", 1)
+        #token2 = await secret_manager.create_token_login_auth(
+        #    session,
+        #    username="kishaolo",
+        #    password="parol",
+        #    sec_level=10,
+        #    permissions=[Permissions.create_secrets, Permissions.read_secrets]
+        #)
+
+        #print(token2)
+
+        ##создание секрета
+        #secret = await secret_manager.create_secret_str(
+        #    session,
+        #    "3q5fI-Fw4O8ReB1XpZPy6QTvW2XgY6kqTh0je18rfWk",
+        #    "test1",
+        #    10,
+        #    "hello world"
+        #)
+        #print(secret) # возвращает id секрета
+
+        #прочтение секрета уровень безопасности не позволит, т.к. у секрета 10 а у токена 9
+        data = await secret_manager.get_secret(session, "3q5fI-Fw4O8ReB1XpZPy6QTvW2XgY6kqTh0je18rfWk", 1)
         print(data)
 
 

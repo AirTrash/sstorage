@@ -24,21 +24,20 @@ async def main():
 
     key = get_random_bytes(16)
     async with db_helper.sessionmaker() as session:
-        #user = await secret_manager.create_user(session, "kishaolo", "parol")
-        #token = await secret_manager.create_token_login_auth(session, "kishaolo", "parol", 10,
-        #                                                     [Permissions.create_secrets, Permissions.create_tokens])
+        user = await secret_manager.create_user(session, "kishaolo", "parol")
+        token = await secret_manager.create_token_login_auth(session, "kishaolo", "parol", 10,
+                                                             [Permissions.create_secrets, Permissions.create_tokens, Permissions.read_secrets])
 
-        #token = await secret_manager.create_token_token_auth(session, "Pb6BQSGb7bawLA3v6LDSaB5FWbPQ0A21Iy5aWN_tugY", 10, [Permissions.read_secrets])
-        #print(token)
-        #secret = await secret_manager.create_secret_str(
-        #    session,
-        #    "Pb6BQSGb7bawLA3v6LDSaB5FWbPQ0A21Iy5aWN_tugY",
-        #    "test1",
-        #    10,
-        #    "hello"
-        #)
-        #print(secret)
-        data = await secret_manager.get_secret(session, "RGIaLOh9rUh-nGhpacLFZ_6hvCNGPxfprtmencjRfmg", 1)
+
+        secret = await secret_manager.create_secret_str(
+            session,
+            "mE6JOEvUPylnR6JQ3iT5E0aoO6LPnHow8Ft8Upn2pk0",
+            "test1",
+            10,
+            "hello"
+        )
+        print(secret)
+        data = await secret_manager.get_secret(session, "mE6JOEvUPylnR6JQ3iT5E0aoO6LPnHow8Ft8Upn2pk0", 1)
         print(data)
 
 

@@ -1,23 +1,23 @@
+import os
+from base64 import b64decode, b64encode
 from .abc_manager import ABCManager
 
 
 class MasterKeyManager(ABCManager):
     def __init__(self):
         self.keys = []
-        self.init_keys()
+        self.load_keys()
 
 
-    def init_keys(self) -> None:
-        print("инициализация мастер ключей")
-        i = 1
-        while True:
-            key = input(f"Введите мастер ключ N{i} или нажмите Enter для окончания ввода ключей: ")
-            if key == "":
-                if len(self.keys) != 0: break
-                print("Введите хотя-бы 1 ключ")
-                continue
-            self.keys.append(key.encode("UTF-8"))
-            i += 1
+    def load_keys(self):
+        print("загрузка ключей из", os.getenv("MASTER_KEYS_PATH"))
+        with open(os.getenv("MASTER_KEYS_PATH"), "r") as file:
+            for line in file:
+                if line == "": continue
+                key = line.replace("\n", "").replace("\r", "")
+                key = b64decode(key.encode("UTF-8"))
+                self.keys.append(key)
+        print("ключи загружены")
 
 
     async def get_key(self, master_key_id: int):

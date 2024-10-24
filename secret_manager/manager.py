@@ -1,6 +1,6 @@
 from typing import Sequence
 from sqlalchemy.ext.asyncio import AsyncSession
-from base64 import b64encode, b64decode
+from base64 import b64encode
 from secrets import token_hex, compare_digest, token_urlsafe
 from hashlib import sha256
 
@@ -10,6 +10,8 @@ from datetime import datetime
 import logging
 
 from . import crypto
+from .errors import UserNotFound, IncorrectPass, CannotCreate, TokenNotFound, NotEnoughPerms, CannotGet, DecryptError, \
+    SecLevelNotEnought, AccessError
 from .permissions import Permissions
 
 from master_key.manager import master_key_manager
@@ -35,6 +37,7 @@ class SecretManager:
         :param session:
         :param username: имя пользователя в UTF-8
         :param password: пароль в UTF-8
+        :param commit: автоматический коммит
         :return: True - если пользователь создан, False - если имя занято.
         """
         user = await users_crud.get_by_name(session, username)
@@ -47,7 +50,7 @@ class SecretManager:
 
 
     #проверяет пароль, и возвращает пользователя, использовать для проверки пароля
-    async def get_user(self, session: AsyncSession, name: str, password: str) -> User | None:
+    async def get_user(self, session: AsyncSession, name: str, password: str) -> User:
         """
         :param session:
         :param name: имя пользователя
@@ -55,10 +58,11 @@ class SecretManager:
         :return: True если пользователь найден и пароль совпадает, иначе False
         """
         user = await users_crud.get_by_name(session, name)
-        if user is None: return None
-
+        if user is None:
+            raise UserNotFound(name)
         pass_hash = self.__get_passhash(password, user.pass_sault)
-        if not compare_digest(user.pass_hash, pass_hash): return None
+        if not compare_digest(user.pass_hash, pass_hash):
+            raise IncorrectPass(name)
         return user
 
 
@@ -72,8 +76,6 @@ class SecretManager:
         :return: True - если удалось, иначе False
         """
         user = await self.get_user(session, name, password)
-        if user is None:
-            return False
         updated = await users_crud.update_name(session, user.id, new_name)
         return updated
 
@@ -88,7 +90,6 @@ class SecretManager:
         :return: True - если успешно, иначе False
         """
         user = await self.get_user(session, name, old_password)
-        if user is None: return False
         sault = token_hex(8)
         pass_hash = self.__get_passhash(new_password, sault)
         updated = await users_crud.update_pass(session, user.id, pass_hash, sault)
@@ -114,7 +115,7 @@ class SecretManager:
 
 
     async def __create_new_token(self, session: AsyncSession, user_id: int,
-                                 sec_level: int, permissions: Sequence) -> None | str:
+                                 sec_level: int, permissions: Sequence) -> str:
         try:
             new_key = await self.__create_key(session, 30)
             token = await self.__create_token(session, user_id, new_key.id, sec_level, permissions)
@@ -122,44 +123,44 @@ class SecretManager:
         except Exception as e:
             logging.error(f"не удалось создать токен, текст ошибки: {e}")
             await session.rollback()
-            return None
+            raise CannotCreate("токен")
 
 
     #создать токен доступа, аутентификация по логину и паролю
     #функция может вызвать rollback транзакции, а так же будет вызван commit
     async def create_token_login_auth(self, session: AsyncSession, username: str, password: str,
-                           sec_level: int, permissions: Sequence) -> str | None:
+                           sec_level: int, permissions: Sequence) -> str:
         """
         :param session:
         :param username: имя пользователя
         :param password: пароль пользователя
         :param sec_level: уровень безопасности токена
         :param permissions: права токена
-        :return: токен, если был создан, иначе None
+        :return: токен
         """
         user = await self.get_user(session, username, password)
-        if user is None:
-            return None
         token = await self.__create_new_token(session, user.id, sec_level, permissions)
         return token
 
 
     #создать токен доступа, используя для аутентификации токен
     #функция может вызвать rollback транзакции, а так же будет вызван commit
-    async def create_token_token_auth(self, session: AsyncSession, token: str, sec_level: int, permissions: Sequence) -> str | None:
+    async def create_token_token_auth(self, session: AsyncSession, token: str, sec_level: int, permissions: Sequence) -> str:
         """
         :param session:
         :param token: токен доступа
         :param sec_level: уровень безопасности
         :param permissions: права токена
-        :return: Токен, если был создан, иначе None
+        :return: Токен
         """
         token = await tokens_crud.get_token(session, token)
         if token is None:
-            return None
+            raise TokenNotFound
         if Permissions.create_tokens not in token.permissions:
             logging.warning(f"попытка создать токен, не имея на то прав user_id: {token.user_id}")
-            return None
+            raise NotEnoughPerms(Permissions.create_tokens)
+        if sec_level > token.sec_level:
+            raise SecLevelNotEnought
         token = await self.__create_new_token(session, token.user_id, sec_level, permissions)
         return token
 
@@ -185,49 +186,49 @@ class SecretManager:
 
 
     #получить ключ по токену
-    async def __get_key(self, session: AsyncSession, token: Token) -> Key | None:
+    async def __get_key(self, session: AsyncSession, token: Token) -> Key:
         key = await keys_crud.get_key(session, token.key_id)
         if key is None or key.end_date < datetime.now():
             key = await self.__change_key(session, token)
+        if key is None:
+            raise CannotGet("ключ шифрования")
         return key
 
 
-    async def __decrypt_key(self, key: Key) -> bytes | None:
+    async def __decrypt_key(self, key: Key) -> bytes:
         master_key = await self.mk_manager.get_key(key.master_key_id)
         if master_key is None:
             logging.error(f"не удалось получить master key, master_key_id: {key.master_key_id}")
-            return None
+            raise DecryptError
         return crypto.decrypt(key.key, master_key, key.nonce, key.tag)
 
 
     async def __create_secret(self, session: AsyncSession, token_id: str,
-                              secret_name: str, sec_level: int, data: bytes, datatype: str) -> int | None:
+                              secret_name: str, sec_level: int, data: bytes, datatype: str) -> int:
         token = await tokens_crud.get_token(session, token_id)
         if token is None:
             logging.warning(f"попытка создать секрет несуществующим токеном: {token_id}")
-            return None
+            raise TokenNotFound
         if Permissions.create_secrets not in token.permissions:
             logging.warning(f"попытка создать секрет, не имея на это прав, токен: {token.token}")
-            return None
+            raise NotEnoughPerms(Permissions.create_tokens)
+        if sec_level > token.sec_level:
+            raise SecLevelNotEnought
 
         #получение ключка, ассоциированного с токеном и его расшифровка
         key = await self.__get_key(session, token)
-        if key is None: return None
         dec_key = await self.__decrypt_key(key)
-        if dec_key is None:
-            logging.critical(f"не удалось расшифровать ключ мастер ключом, key_id: {key.id}")
-            return None
 
         #зашифровывание данных полученным ключем
         cyphertext, nonce, tag = crypto.encrypt(data, dec_key)
-        sec_level = min(sec_level, token.sec_level)
         secret = await secrets_crud.create_secret(session, secret_name, token.user_id, key.id, sec_level, cyphertext, tag, nonce, datatype)
-        if secret is None: return None
+        if secret is None:
+            raise CannotCreate("секрет")
         return secret.id
 
 
     #создание секрета типа bytes
-    async def create_secret_bytes(self, session: AsyncSession, token: str, secret_name: str, sec_level: int, data: bytes) -> int | None:
+    async def create_secret_bytes(self, session: AsyncSession, token: str, secret_name: str, sec_level: int, data: bytes) -> int:
         """
         :param session:
         :param token: токен
@@ -240,7 +241,7 @@ class SecretManager:
 
 
     #создание секрета типа str
-    async def create_secret_str(self, session: AsyncSession, token: str, secret_name: str, sec_level: int, data: str) -> int | None:
+    async def create_secret_str(self, session: AsyncSession, token: str, secret_name: str, sec_level: int, data: str) -> int:
         """
         :param session:
         :param token: токен
@@ -252,48 +253,47 @@ class SecretManager:
         return await self.__create_secret(session, token, secret_name, sec_level, data.encode("UTF-8"), "str")
 
 
-    async def __decrypt_secret(self, session: AsyncSession, secret: Secret) -> None | bytes:
+    async def __decrypt_secret(self, session: AsyncSession, secret: Secret) -> bytes:
         key = await keys_crud.get_key(session, secret.key_id)
         if key is None:
             logging.error(f"не удалось получить ключ, key_id: {secret.key_id}")
-            return None
+            raise CannotGet("ключ")
 
         dec_key = await self.__decrypt_key(key)
-        if dec_key is None:
-            return None
 
-        data = crypto.decrypt(secret.secret, dec_key, secret.nonce, secret.tag)
-        if data is None:
+        try:
+            data = crypto.decrypt(secret.secret, dec_key, secret.nonce, secret.tag)
+        except DecryptError:
             logging.critical(f"не удалось расшифровать секрет, секрет или запись таблицы модифицированы, либо не доступен мастер ключ secret_id: {secret.id}")
+            raise DecryptError
         return data
 
 
     #плучить секрет по id
-    async def get_secret(self, session: AsyncSession, token_str: str, secret_id: int) -> bytes | None | str:
+    async def get_secret(self, session: AsyncSession, token_str: str, secret_id: int) -> bytes | str:
         """
         :param session:
         :param token_str: токен
         :param secret_id: id секрета
-        :return: данные в случае успеха, иначе None
+        :return: данные
         """
         token = await tokens_crud.get_token(session, token_str)
         if token is None:
             logging.warning(f"попытка прочитать секрет несуществующим токеном, token: {token}, secret_id: {secret_id}")
-            return None
+            raise TokenNotFound
         if Permissions.read_secrets not in token.permissions:
             logging.warning(f"попытка прочитать секрет, не имея прав, токен: {token_str}, secret_id: {secret_id}")
-            return None
+            raise NotEnoughPerms(Permissions.read_secrets)
 
         secret = await secrets_crud.get_secret(session, secret_id)
         if token.user_id != secret.user_id:
             logging.warning(f"попытка прочитать секрет не принадлежащий пользователю, токен: {token_str}, secret_id: {secret_id}")
-            return None
+            raise AccessError(f"секрету {secret_id}")
         if token.sec_level < secret.sec_level:
             logging.warning(f"попытка прочитать секрет, не имея подходящий уровень безопасности, токен: {token_str}, secret_id: {secret_id}")
-            return None
+            raise SecLevelNotEnought
 
         data = await self.__decrypt_secret(session, secret)
-        if data is None: return None
 
         if secret.datatype == "str":
             data = data.decode("UTF-8")

@@ -1,6 +1,8 @@
 from Cryptodome.Cipher import AES
 import logging
 
+from secret_manager.errors import DecryptError
+
 
 def encrypt(data: bytes, key: bytes) -> (bytes, bytes, bytes):
     cipher = AES.new(key, AES.MODE_OCB)
@@ -16,4 +18,4 @@ def decrypt(data: bytes, key: bytes, nonce, tag: bytes) -> bytes | None:
         plaintext = cipher.decrypt_and_verify(data, tag)
         return plaintext
     except (ValueError, KeyError):
-        return None
+        raise DecryptError

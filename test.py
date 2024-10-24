@@ -20,9 +20,9 @@ from Cryptodome.Random import get_random_bytes
 async def main():
     async with db_helper.engine.begin() as conn:
         #await conn.run_sync(Base.metadata.drop_all)
-        await conn.run_sync(Base.metadata.create_all)
+        #await conn.run_sync(Base.metadata.create_all)
+        pass
 
-    key = get_random_bytes(16)
     async with db_helper.sessionmaker() as session:
         #await secret_manager.create_user(session, "kishaolo", "parol")
         #token1 = await secret_manager.create_token_login_auth(
@@ -35,11 +35,10 @@ async def main():
 
         #print(token1)
 
-        #token2 = await secret_manager.create_token_login_auth(
+        #token2 = await secret_manager.create_token_token_auth(
         #    session,
-        #    username="kishaolo",
-        #    password="parol",
-        #    sec_level=10,
+        #    token="YFhjko2gWYX268h8pSXn0Mn4I73uoEP6WcNebC8yA_c",
+        #    sec_level=9,
         #    permissions=[Permissions.create_secrets, Permissions.read_secrets]
         #)
 
@@ -48,15 +47,15 @@ async def main():
         ##создание секрета
         #secret = await secret_manager.create_secret_str(
         #    session,
-        #    "3q5fI-Fw4O8ReB1XpZPy6QTvW2XgY6kqTh0je18rfWk",
+        #    "1_u32r2TAaYBXZ7eMpjo6uCV3QkULYcOo6DiLPYUq3k",
         #    "test1",
-        #    10,
+        #    9,
         #    "hello world"
         #)
         #print(secret) # возвращает id секрета
 
         #прочтение секрета уровень безопасности не позволит, т.к. у секрета 10 а у токена 9
-        data = await secret_manager.get_secret(session, "3q5fI-Fw4O8ReB1XpZPy6QTvW2XgY6kqTh0je18rfWk", 1)
+        data = await secret_manager.get_secret(session, "1_u32r2TAaYBXZ7eMpjo6uCV3QkULYcOo6DiLPYUq3k", 1)
         print(data)
 
 

@@ -7,8 +7,5 @@ class DBhelper:
         self.engine = create_async_engine(db_url)
         self.sessionmaker = async_sessionmaker(self.engine, expire_on_commit=False)
 
-    def get_session(self):
-        pass
-
 
 db_helper = DBhelper(os.getenv("DATABASE_URL"))

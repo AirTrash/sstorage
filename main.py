@@ -25,6 +25,6 @@ if __name__ == "__main__":
     uvicorn.run(
         "main:app",
         reload=True,
-        #ssl_keyfile=os.getenv("FASTAPI_KEY"),
-        #ssl_certfile=os.getenv("FASTAPI_CERT"),
+        ssl_keyfile=os.getenv("FASTAPI_KEY"),
+        ssl_certfile=os.getenv("FASTAPI_CERT"),
     )

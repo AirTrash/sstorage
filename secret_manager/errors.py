@@ -28,26 +28,26 @@ class AccessError(PermError):
 class ServError(Exception):
     def __init__(self, message="ошибка на стороне сервера"):
         self.message = message
-        self.status_code = 500
         super().__init__(self.message)
+        self.status_code = 500
 
 
 class UserNotFound(ServError):
     def __init__(self, username: str):
-        self.status_code = 404
         super().__init__(f"пользователь {username} не найден")
+        self.status_code = 404
 
 
 class TokenNotFound(ServError):
     def __init__(self):
-        self.status_code = 404
         super().__init__(f"токен не найден")
+        self.status_code = 404
 
 
 class TargetTokenNotFound(ServError):
     def __init__(self):
-        self.status_code = 404
         super().__init__(f"целевой токен не найден")
+        self.status_code = 404
 
 
 class CannotCreate(ServError):
@@ -57,8 +57,8 @@ class CannotCreate(ServError):
 
 class CannotGet(ServError):
     def __init__(self, entity: str):
-        self.status_code = 404
         super().__init__(f"не удалось получить {entity}")
+        self.status_code = 404
 
 
 class CannotUpdate(ServError):

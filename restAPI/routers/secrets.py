@@ -1,6 +1,6 @@
 from typing import Annotated, List
 
-from fastapi import APIRouter, Response, Body
+from fastapi import APIRouter, Response, Body, File
 import logging
 
 from sqlalchemy.ext.horizontal_shard import ShardedSession
@@ -42,11 +42,12 @@ async def create_string(session: SessionDep, secret: StringSecret, token: Annota
 async def create_bytes(session: SessionDep, secret: BytesSecret, token: Annotated[str, Body()], resp: Response):
     try:
         secret_id = await secret_manager.create_secret_bytes(
-            session, token, secret.name, secret.secret, secret.secret
+            session, token, secret.name, secret.sec_level, secret.secret
         )
         return SecretIdResp(secret_id=secret_id)
     except (ServError, PermError) as e:
         resp.status_code = e.status_code
+        print(e.status_code)
         return ErrorMsg(message=e.message)
     except Exception as e:
         resp.status_code = 500
@@ -54,7 +55,12 @@ async def create_bytes(session: SessionDep, secret: BytesSecret, token: Annotate
         return ErrorMsg
 
 
-@router.get("/get_secret/{token}/{secret_id}", status_code=200)
+@router.post("/files/")
+async def create_file(file: Annotated[bytes, File()]):
+    return {"file_size": len(file)}
+
+
+@router.get("/get_secret/{token}/{secret_id}", status_code=200, responses={200: {"model": Secret}})
 async def get_secret(session: SessionDep, token: str, secret_id: int, resp: Response):
     try:
         name, data, datatype, sec_level = await secret_manager.get_secret(

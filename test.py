@@ -19,9 +19,9 @@ from Cryptodome.Random import get_random_bytes
 
 async def main():
     async with db_helper.engine.begin() as conn:
-        #await conn.run_sync(Base.metadata.drop_all)
-        #await conn.run_sync(Base.metadata.create_all)
-        pass
+        await conn.run_sync(Base.metadata.drop_all)
+        await conn.run_sync(Base.metadata.create_all)
+
 
     async with db_helper.sessionmaker() as session:
         #await secret_manager.create_user(session, "kishaolo", "parol")
@@ -55,8 +55,9 @@ async def main():
         #print(secret) # возвращает id секрета
 
         #прочтение секрета уровень безопасности не позволит, т.к. у секрета 10 а у токена 9
-        data = await secret_manager.get_secret(session, "1_u32r2TAaYBXZ7eMpjo6uCV3QkULYcOo6DiLPYUq3k", 1)
-        print(data)
+        #data = await secret_manager.get_secret(session, "1_u32r2TAaYBXZ7eMpjo6uCV3QkULYcOo6DiLPYUq3k", 1)
+        #print(data)
+        pass
 
 
 if __name__ == "__main__":

@@ -11,7 +11,7 @@ import logging
 
 from . import crypto
 from .errors import UserNotFound, IncorrectPass, CannotCreate, TokenNotFound, NotEnoughPerms, CannotGet, DecryptError, \
-    SecLevelNotEnought, AccessError
+    SecLevelNotEnought, AccessError, ServError, TargetTokenNotFound
 from .permissions import Permissions
 
 from master_key.manager import master_key_manager
@@ -62,12 +62,13 @@ class SecretManager:
             raise UserNotFound(name)
         pass_hash = self.__get_passhash(password, user.pass_sault)
         if not compare_digest(user.pass_hash, pass_hash):
+            logging.warning(f"был передан неверный пароль для пользователя {name}")
             raise IncorrectPass(name)
         return user
 
 
     #изменить имя пользователя
-    async def rename_user(self, session: AsyncSession, name: str, password: str, new_name: str) -> bool:
+    async def rename_user(self, session: AsyncSession, name: str, password: str, new_name: str):
         """
         :param session:
         :param name: имя пользователя
@@ -77,11 +78,13 @@ class SecretManager:
         """
         user = await self.get_user(session, name, password)
         updated = await users_crud.update_name(session, user.id, new_name)
-        return updated
+        if updated is not True:
+            logging.error(f"не удалось сменить имя пользователя {name}")
+            raise ServError("ошибка на стороне сервера, не удалось сменить имя")
 
 
     #изменить пароль пользователя
-    async def change_password(self, session: AsyncSession, name: str, old_password: str, new_password: str) -> bool:
+    async def change_password(self, session: AsyncSession, name: str, old_password: str, new_password: str):
         """
         :param session:
         :param name: имя пользователя
@@ -93,7 +96,9 @@ class SecretManager:
         sault = token_hex(8)
         pass_hash = self.__get_passhash(new_password, sault)
         updated = await users_crud.update_pass(session, user.id, pass_hash, sault)
-        return updated
+        if updated is not True:
+            logging.error(f"не удалось сменить пароль пользователя {name}")
+            raise ServError("ошибка на стороне сервера, не удалось сменить пароль")
 
 
     async def __create_key(self, session: AsyncSession, term: int, commit=True) -> Key:
@@ -104,7 +109,7 @@ class SecretManager:
         return key
 
 
-    async def __create_token(self, session: AsyncSession, user_id: int, key_id: int,
+    async def __create_token(self, session: AsyncSession, user_id: int, key_id: int | None,
                              sec_level: int, permissions: Sequence, commit=True) -> Token:
         while True:
             token = token_urlsafe(32)
@@ -117,8 +122,11 @@ class SecretManager:
     async def __create_new_token(self, session: AsyncSession, user_id: int,
                                  sec_level: int, permissions: Sequence) -> str:
         try:
-            new_key = await self.__create_key(session, 30)
-            token = await self.__create_token(session, user_id, new_key.id, sec_level, permissions)
+            if Permissions.create_secrets in permissions:
+                new_key = await self.__create_key(session, 30)
+                token = await self.__create_token(session, user_id, new_key.id, sec_level, permissions)
+            else:
+                token = await self.__create_token(session, user_id, None, sec_level, permissions)
             return token.token
         except Exception as e:
             logging.error(f"не удалось создать токен, текст ошибки: {e}")
@@ -163,6 +171,25 @@ class SecretManager:
             raise SecLevelNotEnought
         token = await self.__create_new_token(session, token.user_id, sec_level, permissions)
         return token
+
+
+    #удалить токен
+    async def del_token(self, session: AsyncSession, token: str, token_for_del: str):
+        token = await tokens_crud.get_token(session, token)
+        if token is None:
+            raise TokenNotFound
+        if Permissions.delete_tokens not in token.permissions:
+            logging.warning(f"попытка удалить токен, не имея на это прав, user_id: {token.user_id}")
+            raise NotEnoughPerms(Permissions.delete_tokens)
+
+        token_for_del = await tokens_crud.get_token(session, token_for_del)
+        if token_for_del is None:
+            raise TargetTokenNotFound
+        if token_for_del.sec_level > token.sec_level:
+            raise SecLevelNotEnought
+
+        result = await session.delete(token_for_del)
+        await session.commit()
 
 
     #сменить ключ токена
@@ -269,13 +296,28 @@ class SecretManager:
         return data
 
 
+    async def __get_secret(self, session: AsyncSession, token: Token, secret_id: int) -> Secret:
+        secret = await secrets_crud.get_secret(session, secret_id)
+        if secret is None:
+            raise CannotGet("секрет")
+        if token.user_id != secret.user_id:
+            logging.warning(
+                f"попытка прочитать секрет не принадлежащий пользователю, токен: {token.token}, secret_id: {secret_id}")
+            raise AccessError(f"секрету {secret_id}")
+        if token.sec_level < secret.sec_level:
+            logging.warning(
+                f"попытка прочитать секрет, не имея подходящий уровень безопасности, токен: {token.token}, secret_id: {secret_id}")
+            raise SecLevelNotEnought
+        return secret
+
+
     #плучить секрет по id
-    async def get_secret(self, session: AsyncSession, token_str: str, secret_id: int) -> bytes | str:
+    async def get_secret(self, session: AsyncSession, token_str: str, secret_id: int) -> (bytes | str, str, int):
         """
         :param session:
         :param token_str: токен
         :param secret_id: id секрета
-        :return: данные
+        :return: имя секрета, секрет, тип данных секрета, уровень безопасности секрета
         """
         token = await tokens_crud.get_token(session, token_str)
         if token is None:
@@ -285,19 +327,26 @@ class SecretManager:
             logging.warning(f"попытка прочитать секрет, не имея прав, токен: {token_str}, secret_id: {secret_id}")
             raise NotEnoughPerms(Permissions.read_secrets)
 
-        secret = await secrets_crud.get_secret(session, secret_id)
-        if token.user_id != secret.user_id:
-            logging.warning(f"попытка прочитать секрет не принадлежащий пользователю, токен: {token_str}, secret_id: {secret_id}")
-            raise AccessError(f"секрету {secret_id}")
-        if token.sec_level < secret.sec_level:
-            logging.warning(f"попытка прочитать секрет, не имея подходящий уровень безопасности, токен: {token_str}, secret_id: {secret_id}")
-            raise SecLevelNotEnought
-
+        secret = await self.__get_secret(session, token, secret_id)
         data = await self.__decrypt_secret(session, secret)
 
         if secret.datatype == "str":
             data = data.decode("UTF-8")
-        return data
+        return secret.name, data, secret.datatype, secret.sec_level
+
+
+    async def del_secret(self, session: AsyncSession, token_str: str, secret_id: int):
+        token = await tokens_crud.get_token(session, token_str)
+        if token is None:
+            logging.warning(f"попытка прочитать секрет несуществующим токеном, token: {token}, secret_id: {secret_id}")
+            raise TokenNotFound
+        if Permissions.delete_secrets not in token.permissions:
+            logging.warning(f"попытка прочитать секрет, не имея прав, токен: {token_str}, secret_id: {secret_id}")
+            raise NotEnoughPerms(Permissions.delete_secrets)
+
+        secret = await self.__get_secret(session, token, secret_id)
+        await session.delete(secret)
+        await session.commit()
 
 
 secret_manager = SecretManager(master_key_manager)

@@ -14,7 +14,7 @@ from sqlalchemy import select, update, delete
 
 #создает новый токен
 @commit
-async def create_token(session: AsyncSession, token: str, user_id: int, key_id: int, permissions: List[str] | Tuple[str, ...], sec_level: int) -> Token:
+async def create_token(session: AsyncSession, token: str, user_id: int, key_id: int | None, permissions: List[str] | Tuple[str, ...], sec_level: int) -> Token:
     token = Token(
         token=token,
         user_id=user_id,

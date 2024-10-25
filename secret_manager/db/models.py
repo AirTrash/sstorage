@@ -1,5 +1,6 @@
 import datetime
 
+from typing import Optional
 from sqlalchemy import func, ForeignKey
 from sqlalchemy import Column, LargeBinary, DateTime, String
 from sqlalchemy.ext.asyncio import AsyncAttrs
@@ -36,7 +37,7 @@ class Token(Base):
     __tablename__ = "tokens"
     token: Mapped[str] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey(User.id))
-    key_id: Mapped[int] = mapped_column(ForeignKey(Key.id))
+    key_id: Mapped[int] = mapped_column(ForeignKey(Key.id), nullable=True)
     permissions = Column(ARRAY(String), nullable=False)
     sec_level: Mapped[int]
 

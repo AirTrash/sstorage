@@ -1,7 +1,9 @@
-from . import test_router
+from . import users, tokens, secrets
 
 
 all_routers = (
-    test_router.router,
+    users.router,
+    tokens.router,
+    secrets.router,
 
 )

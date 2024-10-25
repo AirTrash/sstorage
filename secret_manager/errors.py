@@ -40,6 +40,11 @@ class TokenNotFound(ServError):
         super().__init__(f"токен не найден")
 
 
+class TargetTokenNotFound(ServError):
+    def __init__(self):
+        super().__init__(f"целевой токен не найден")
+
+
 class CannotCreate(ServError):
     def __init__(self, entity: str):
         super().__init__(f"не удалось создать {entity}")

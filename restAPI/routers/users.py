@@ -12,7 +12,8 @@ from secret_manager.manager import secret_manager
 router = APIRouter(
     prefix="/users",
     tags=["users"],
-    responses={404: {"description": "Not found"}, 202: {"model": ErrorMsg}, 500: {"description": "unknown error"}},
+    responses={404: {"description": "Not found", "model": ErrorMsg},
+               500: {"description": "unknown error", "model": ErrorMsg}},
 )
 
 
@@ -34,7 +35,7 @@ async def root(session: SessionDep, user: User, resp: Response):
         return ErrorMsg(message="пользователь не был создан")
 
 
-@router.post("/rename", status_code=202)
+@router.post("/rename", status_code=201)
 async def rename(session: SessionDep, rename_user: RenameUser, resp: Response):
     try:
         await secret_manager.rename_user(
@@ -43,10 +44,9 @@ async def rename(session: SessionDep, rename_user: RenameUser, resp: Response):
             rename_user.password,
             rename_user.new_name
         )
-
-        resp.status_code = 201
         return "success"
     except (ServError, PermError) as e:
+        resp.status_code = e.status_code
         return ErrorMsg(message=e.message)
     except Exception as e:
         logging.error(f"произошла ошибка при попытке изменить имя пользователя, текст ошибки: {e}")
@@ -54,16 +54,16 @@ async def rename(session: SessionDep, rename_user: RenameUser, resp: Response):
         return ErrorMsg(message="неизвестная ошибка")
 
 
-@router.post("/change_password", status_code=202)
+@router.post("/change_password", status_code=201)
 async def change_password(session: SessionDep, password: ChangePassword, resp: Response):
     try:
         await secret_manager.change_password(
             session, password.name, password.old_password,
             password.new_password
         )
-        resp.status_code = 201
         return "success"
     except (ServError, PermError) as e:
+        resp.status_code = e.status_code
         return ErrorMsg(message=e.message)
     except Exception as e:
         logging.error(f"произошла ошибка при попытке изменить пароль, текст ошибки: {e}")

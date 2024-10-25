@@ -68,5 +68,16 @@ class Secret(BaseModel):
     sec_level: int
 
 
+class SecretInfo(BaseModel):
+    secret_id: int
+    name: str
+    sec_level: int
+
+
+class SecretInfoList(BaseModel):
+    secrets: List[SecretInfo] | List
+
+
 class SecretIdResp(BaseModel):
     secret_id: int
+

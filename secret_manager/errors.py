@@ -1,6 +1,7 @@
 class PermError(Exception):
     def __init__(self, message="недостаточно прав"):
         self.message = message
+        self.status_code = 401
         super().__init__(self.message)
 
 
@@ -27,21 +28,25 @@ class AccessError(PermError):
 class ServError(Exception):
     def __init__(self, message="ошибка на стороне сервера"):
         self.message = message
+        self.status_code = 500
         super().__init__(self.message)
 
 
 class UserNotFound(ServError):
     def __init__(self, username: str):
+        self.status_code = 404
         super().__init__(f"пользователь {username} не найден")
 
 
 class TokenNotFound(ServError):
     def __init__(self):
+        self.status_code = 404
         super().__init__(f"токен не найден")
 
 
 class TargetTokenNotFound(ServError):
     def __init__(self):
+        self.status_code = 404
         super().__init__(f"целевой токен не найден")
 
 
@@ -52,6 +57,7 @@ class CannotCreate(ServError):
 
 class CannotGet(ServError):
     def __init__(self, entity: str):
+        self.status_code = 404
         super().__init__(f"не удалось получить {entity}")
 
 
@@ -63,3 +69,8 @@ class CannotUpdate(ServError):
 class DecryptError(ServError):
     def __init__(self):
         super().__init__("не удалось расшифровать")
+
+
+class MaxLimit(ServError):
+    def __init__(self, limit: int):
+        super().__init__(f"превышен максимальный лимит для получения записей в одном запросе: {limit}")

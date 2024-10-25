@@ -1,4 +1,4 @@
-from typing import Sequence
+from typing import Sequence, List
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from secret_manager.db.models import Secret
@@ -50,7 +50,7 @@ async def update_sec_level(session: AsyncSession, secret_id: int, new_sec_level:
 
 
 #возвращает id секретов пользователя по страницам
-async def get_user_secrets(session: AsyncSession, user_id: int, offset: int, limit: int) -> Sequence:
-    stmt = select(Secret.id, Secret.name).where(Secret.user_id == user_id).offset(offset).limit(limit)
+async def get_user_secrets(session: AsyncSession, user_id: int, offset: int, limit: int) -> Sequence[Secret]:
+    stmt = select(Secret).where(Secret.user_id == user_id).offset(offset).limit(limit)
     result = await session.execute(stmt)
-    return result.all()
+    return result.scalars().all()

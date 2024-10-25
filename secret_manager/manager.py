@@ -1,4 +1,4 @@
-from typing import Sequence
+from typing import Sequence, List, Dict
 from sqlalchemy.ext.asyncio import AsyncSession
 from base64 import b64encode
 from secrets import token_hex, compare_digest, token_urlsafe
@@ -11,7 +11,7 @@ import logging
 
 from . import crypto
 from .errors import UserNotFound, IncorrectPass, CannotCreate, TokenNotFound, NotEnoughPerms, CannotGet, DecryptError, \
-    SecLevelNotEnought, AccessError, ServError, TargetTokenNotFound
+    SecLevelNotEnought, AccessError, ServError, TargetTokenNotFound, MaxLimit
 from .permissions import Permissions
 
 from master_key.manager import master_key_manager
@@ -335,10 +335,24 @@ class SecretManager:
         return secret.name, data, secret.datatype, secret.sec_level
 
 
+    async def get_user_secrets(self, session: AsyncSession, token_str: str, offset: int, limit: int) -> List[Dict]:
+        token = await tokens_crud.get_token(session, token_str)
+        if token is None:
+            logging.warning(f"попытка получить секреты несуществующим токеном")
+            raise TokenNotFound
+        if limit > 100:
+            raise MaxLimit(100)
+        secrets = await secrets_crud.get_user_secrets(session, token.user_id, offset, limit)
+        ret = []
+        for secret in secrets:
+            ret.append({"name": secret.name, "secret_id": secret.id, "sec_level": secret.sec_level})
+        return ret
+
+
     async def del_secret(self, session: AsyncSession, token_str: str, secret_id: int):
         token = await tokens_crud.get_token(session, token_str)
         if token is None:
-            logging.warning(f"попытка прочитать секрет несуществующим токеном, token: {token}, secret_id: {secret_id}")
+            logging.warning(f"попытка удалить секрет несуществующим токеном, token: {token}, secret_id: {secret_id}")
             raise TokenNotFound
         if Permissions.delete_secrets not in token.permissions:
             logging.warning(f"попытка прочитать секрет, не имея прав, токен: {token_str}, secret_id: {secret_id}")

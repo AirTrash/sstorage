@@ -12,11 +12,12 @@ from secret_manager.manager import secret_manager
 router = APIRouter(
     prefix="/tokens",
     tags=["tokens"],
-    responses={404: {"description": "Not found"}, 201: {"model": TokenResp}, 202: {"model": ErrorMsg}, 500: {"description": "unknown error"}}
+    responses={404: {"description": "Not found", "model": ErrorMsg},
+               500: {"description": "unknown error", "model": ErrorMsg}}
 )
 
 
-@router.post("/create-login-auth", status_code=201)
+@router.post("/create-login-auth", status_code=201, responses={201: {"model": TokenResp}})
 async def create_login_auth(session: SessionDep, token: CreateLoginAuth, resp: Response):
     try:
         token = await secret_manager.create_token_login_auth(
@@ -25,7 +26,7 @@ async def create_login_auth(session: SessionDep, token: CreateLoginAuth, resp: R
         )
         return TokenResp(token=token)
     except (ServError, PermError) as e:
-        resp.status_code = 202
+        resp.status_code = e.status_code
         return ErrorMsg(message=e.message)
     except Exception as e:
         resp.status_code = 500
@@ -33,7 +34,7 @@ async def create_login_auth(session: SessionDep, token: CreateLoginAuth, resp: R
         return ErrorMsg(message="неизвестная ошибка при создании токена")
 
 
-@router.post("/create", status_code=201)
+@router.post("/create", status_code=201, responses={201: {"model": TokenResp}})
 async def create_token_auth(session: SessionDep, token: CreateTokenAuth, resp: Response):
     try:
         token = await secret_manager.create_token_token_auth(
@@ -42,7 +43,7 @@ async def create_token_auth(session: SessionDep, token: CreateTokenAuth, resp: R
         )
         return TokenResp(token=token)
     except (ServError, PermError) as e:
-        resp.status_code = 202
+        resp.status_code = e.status_code
         return ErrorMsg(message=e.message)
     except Exception as e:
         resp.status_code = 500
@@ -56,7 +57,7 @@ async def del_token(session: SessionDep, token: DelToken, resp: Response):
         await secret_manager.del_token(session, token.token, token.token_for_del)
         return "success"
     except (ServError, PermError) as e:
-        resp.status_code = 202
+        resp.status_code = e.status_code
         return ErrorMsg(message=e.message)
     except Exception as e:
         resp.status_code = 500

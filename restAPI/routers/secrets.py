@@ -55,11 +55,6 @@ async def create_bytes(session: SessionDep, secret: BytesSecret, token: Annotate
         return ErrorMsg
 
 
-@router.post("/files/")
-async def create_file(file: Annotated[bytes, File()]):
-    return {"file_size": len(file)}
-
-
 @router.get("/get_secret/{token}/{secret_id}", status_code=200, responses={200: {"model": Secret}})
 async def get_secret(session: SessionDep, token: str, secret_id: int, resp: Response):
     try:

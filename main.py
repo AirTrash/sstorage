@@ -16,8 +16,7 @@ from restAPI.dependencies import SessionDep
 
 @app.get("/")
 async def root(sess: SessionDep):
-    print(sess)
-    return {"message": "sstorage main page"}
+    return {"message": "документация к API /docs"}
 
 
 if __name__ == "__main__":

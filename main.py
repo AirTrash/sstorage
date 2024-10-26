@@ -1,7 +1,7 @@
 from dotenv import load_dotenv
 load_dotenv(".env")
 import os
-from fastapi import Depends, FastAPI
+from fastapi import FastAPI
 
 from restAPI.routers import all_routers
 
@@ -11,11 +11,9 @@ for router in all_routers:
     app.include_router(router)
 
 
-from restAPI.dependencies import SessionDep
-
 
 @app.get("/")
-async def root(sess: SessionDep):
+async def root():
     return {"message": "документация к API /docs"}
 
 

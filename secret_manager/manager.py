@@ -238,7 +238,7 @@ class SecretManager:
             raise TokenNotFound
         if Permissions.create_secrets not in token.permissions:
             logging.warning(f"попытка создать секрет, не имея на это прав, токен: {token.token}")
-            raise NotEnoughPerms(Permissions.create_tokens)
+            raise NotEnoughPerms(Permissions.create_secrets)
         if sec_level > token.sec_level:
             raise SecLevelNotEnought
 
